@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2-Player Number Guessing Duel</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700&display=swap"
+        rel="stylesheet">
+    <!-- Tone.js for subtle synthesized game audio -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Canvas Confetti for celebrations -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top center, #1e1b4b 0%, #0f172a 55%, #020617 100%);
+            min-height: 100vh;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .font-mono-num {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom subtle glow and glassmorphism */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.55);
+        }
+
+        .p1-glow {
+            box-shadow: 0 0 28px -4px rgba(6, 182, 212, 0.35);
+            border-color: rgba(34, 211, 238, 0.5);
+        }
+
+        .p2-glow {
+            box-shadow: 0 0 28px -4px rgba(245, 158, 11, 0.35);
+            border-color: rgba(251, 191, 36, 0.5);
+        }
+
+        /* Hide number input spin buttons */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        @keyframes popIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.95) translateY(8px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .animate-pop {
+            animation: popIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            20% {
+                transform: translateX(-6px);
+            }
+
+            40% {
+                transform: translateX(6px);
+            }
+
+            60% {
+                transform: translateX(-4px);
+            }
+
+            80% {
+                transform: translateX(4px);
+            }
+        }
+
+        .animate-shake {
+            animation: shake 0.35s ease-in-out;
+        }
+    </style>
+</head>
+
+<body class="flex flex-col justify-between p-4 sm:p-6 md:p-8 selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- Top Header -->
+    <header class="w-full max-w-2xl mx-auto flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <div
+                class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.3"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                </svg>
+            </div>
+            <div>
+                <h1
+                    class="text-lg sm:text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                    NUMBER DUEL
+                </h1>
+                <p class="text-xs text-slate-400 font-medium">1 – 100 Two-Player Showdown</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Sound Toggle Button -->
+            <button id="soundToggleBtn" title="Toggle Sound Effects"
+                class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/70 text-slate-300 transition active:scale-95">
+                <svg id="soundOnIcon" class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+                <svg id="soundOffIcon" class="w-5 h-5 text-slate-500 hidden" fill="none" stroke="currentColor"
+                    stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>
+            </button>
+
+            <!-- Reset / Quit to Setup Button (visible during gameplay) -->
+            <button id="quitBtn"
+                class="hidden px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/60 hover:text-rose-300 hover:border-rose-800/60 border border-slate-700/70 text-xs font-semibold text-slate-300 transition active:scale-95">
+                Restart
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="w-full max-w-2xl mx-auto my-auto">
+
+        <!-- ==================== 1. SETUP SCREEN ==================== -->
+        <section id="setupScreen" class="glass-card rounded-3xl p-6 sm:p-8 animate-pop">
+            <div class="text-center mb-7">
+                <span
+                    class="inline-block px-3 py-1 rounded-full text-xs font-semibold tracking-wider uppercase bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 mb-3">
+                    Match Configuration
+                </span>
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                    Ready to Guess the Secret Number?
+                </h2>
+                <p class="text-sm text-slate-400 mt-1.5 max-w-md mx-auto">
+                    Take turns guessing a secret number between <span class="text-slate-200 font-semibold">1 and
+                        100</span>. First to crack the code wins the round!
+                </p>
+            </div>
+
+            <form id="setupForm" class="space-y-5">
+                <!-- Number of Rounds -->
+                <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4">
+                    <label for="roundsInput"
+                        class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+                        Number of Rounds
+                    </label>
+                    <div class="flex items-center gap-3">
+                        <button type="button" id="decRoundsBtn"
+                            class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xl flex items-center justify-center border border-slate-700 transition active:scale-95">
+                            −
+                        </button>
+                        <input type="number" id="roundsInput" min="1" max="50" value="3" required
+                            class="w-full h-11 bg-slate-950/80 border border-slate-700/80 rounded-xl text-center font-mono-num text-xl font-bold text-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition">
+                        <button type="button" id="incRoundsBtn"
+                            class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xl flex items-center justify-center border border-slate-700 transition active:scale-95">
+                            +
+                        </button>
+                    </div>
+                    <!-- Quick round presets -->
+                    <div class="flex gap-2 mt-3">
+                        <button type="button" data-rounds="1"
+                            class="preset-round-btn flex-1 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/70 hover:bg-slate-700 text-slate-300 border border-slate-700/50 transition">1
+                            Round</button>
+                        <button type="button" data-rounds="3"
+                            class="preset-round-btn flex-1 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/30 text-indigo-200 border border-indigo-500/40 transition">3
+                            Rounds</button>
+                        <button type="button" data-rounds="5"
+                            class="preset-round-btn flex-1 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/70 hover:bg-slate-700 text-slate-300 border border-slate-700/50 transition">5
+                            Rounds</button>
+                    </div>
+                </div>
+
+                <!-- Player Names -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Player 1 Name -->
+                    <div class="bg-slate-900/70 border border-cyan-500/25 rounded-2xl p-4">
+                        <label for="p1NameInput"
+                            class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                            Player 1 Name
+                        </label>
+                        <input type="text" id="p1NameInput" placeholder="Player 1" maxlength="18"
+                            class="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition">
+                    </div>
+
+                    <!-- Player 2 Name -->
+                    <div class="bg-slate-900/70 border border-amber-500/25 rounded-2xl p-4">
+                        <label for="p2NameInput"
+                            class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                            Player 2 Name
+                        </label>
+                        <input type="text" id="p2NameInput" placeholder="Player 2" maxlength="18"
+                            class="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition">
+                    </div>
+                </div>
+
+                <!-- Start Button -->
+                <button type="submit"
+                    class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:via-indigo-400 hover:to-purple-500 text-white font-extrabold text-base tracking-wide shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+                    Start Game
+                </button>
+            </form>
+        </section>
+
+        <!-- ==================== 2. GAMEPLAY SCREEN ==================== -->
+        <section id="gameplayScreen" class="hidden space-y-4 animate-pop">
+
+            <!-- Round & Scoreboard Bar -->
+            <div class="glass-card rounded-3xl p-4 sm:p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <span id="roundBadge"
+                        class="px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        Round 1 of 3
+                    </span>
+                    <div
+                        class="flex items-center gap-2 text-xs font-semibold text-slate-400 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800">
+                        <span>Hint Range:</span>
+                        <span id="hintRangeText" class="font-mono-num font-bold text-emerald-400">1 – 100</span>
+                    </div>
+                </div>
+
+                <!-- Live Scoreboard -->
+                <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                    <!-- Player 1 Card -->
+                    <div id="p1ScoreCard"
+                        class="rounded-2xl p-3.5 sm:p-4 bg-slate-900/80 border border-cyan-500/40 transition-all duration-300">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span id="p1ActiveDot"
+                                    class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shrink-0"></span>
+                                <span id="p1ScoreName"
+                                    class="text-sm sm:text-base font-bold text-cyan-300 truncate">Player 1</span>
+                            </div>
+                            <span id="p1ScoreValue"
+                                class="font-mono-num text-2xl sm:text-3xl font-black text-white">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Player 2 Card -->
+                    <div id="p2ScoreCard"
+                        class="rounded-2xl p-3.5 sm:p-4 bg-slate-900/50 border border-slate-800 transition-all duration-300 opacity-75">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span id="p2ActiveDot"
+                                    class="w-2.5 h-2.5 rounded-full bg-amber-400 hidden shrink-0"></span>
+                                <span id="p2ScoreName"
+                                    class="text-sm sm:text-base font-bold text-amber-300 truncate">Player 2</span>
+                            </div>
+                            <span id="p2ScoreValue"
+                                class="font-mono-num text-2xl sm:text-3xl font-black text-white">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Turn & Guessing Arena -->
+            <div id="arenaCard" class="glass-card rounded-3xl p-6 sm:p-8 p1-glow transition-all duration-300">
+                <!-- Turn Indicator Header -->
+                <div class="text-center mb-6">
+                    <div id="turnPill"
+                        class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-extrabold uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 mb-2">
+                        <span class="w-2 h-2 rounded-full bg-current"></span>
+                        <span id="turnLabel">Player 1's Turn</span>
+                    </div>
+                    <p id="promptSubtext" class="text-sm text-slate-400">
+                        Guess a number between <span class="text-slate-200 font-semibold">1</span> and <span
+                            class="text-slate-200 font-semibold">100</span>
+                    </p>
+                </div>
+
+                <!-- Guess Input Form -->
+                <form id="guessForm" class="max-w-sm mx-auto space-y-3">
+                    <div class="relative">
+                        <input type="number" id="guessInput" min="1" max="100" placeholder="?" autocomplete="off"
+                            class="w-full h-16 sm:h-20 bg-slate-950/90 border-2 border-cyan-500/50 rounded-2xl text-center font-mono-num text-3xl sm:text-4xl font-extrabold text-white placeholder-slate-700 focus:outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/20 transition">
+                    </div>
+
+                    <button type="submit" id="submitGuessBtn"
+                        class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold text-base tracking-wide shadow-lg shadow-cyan-500/25 transition transform active:scale-98 cursor-pointer">
+                        Submit Guess
+                    </button>
+                </form>
+
+                <!-- Feedback Banner -->
+                <div id="feedbackBanner" class="hidden mt-6 rounded-2xl p-4 border text-center transition-all">
+                    <div class="flex items-center justify-center gap-2.5">
+                        <span id="feedbackIcon" class="shrink-0"></span>
+                        <p id="feedbackMessage" class="text-sm sm:text-base font-bold"></p>
+                    </div>
+                </div>
+
+                <!-- Round Won Action Button -->
+                <div id="nextRoundContainer" class="hidden mt-5 text-center">
+                    <button type="button" id="nextRoundBtn"
+                        class="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold text-base tracking-wide shadow-lg shadow-emerald-500/25 transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+                        Next Round →
+                    </button>
+                </div>
+            </div>
+
+            <!-- Compact Guess History Log for Current Round -->
+            <div id="historyContainer" class="glass-card rounded-2xl p-4 hidden">
+                <div class="flex items-center justify-between mb-2.5">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Current Round Guesses</h3>
+                    <span id="guessCountBadge" class="text-xs font-mono-num text-slate-500">0 guesses</span>
+                </div>
+                <div id="guessHistoryList" class="flex flex-wrap gap-2 max-h-28 overflow-y-auto pr-1">
+                    <!-- Guess chips injected dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 3. FINAL RESULTS SCREEN ==================== -->
+        <section id="resultsScreen" class="hidden glass-card rounded-3xl p-6 sm:p-9 text-center animate-pop">
+            <div
+                class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-slate-950 shadow-xl shadow-amber-500/30 mb-4">
+                <svg class="w-9 h-9" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                        d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                </svg>
+            </div>
+
+            <p class="text-xs font-extrabold uppercase tracking-[0.2em] text-indigo-400 mb-1">
+                ===== FINAL RESULTS =====
+            </p>
+            <h2 id="winnerAnnouncement" class="text-2xl sm:text-4xl font-black text-white tracking-tight mt-1 mb-6">
+                Player 1 is the overall winner!
+            </h2>
+
+            <!-- Final Score Comparison Cards -->
+            <div class="grid grid-cols-2 gap-4 max-w-md mx-auto mb-7">
+                <div id="finalP1Card" class="rounded-2xl p-4 bg-slate-900/80 border border-cyan-500/30">
+                    <p id="finalP1Name" class="text-xs font-bold uppercase tracking-wider text-cyan-400 truncate">Player
+                        1</p>
+                    <p id="finalP1Score" class="font-mono-num text-4xl font-black text-white mt-1">0</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Rounds Won</p>
+                </div>
+
+                <div id="finalP2Card" class="rounded-2xl p-4 bg-slate-900/80 border border-amber-500/30">
+                    <p id="finalP2Name" class="text-xs font-bold uppercase tracking-wider text-amber-400 truncate">
+                        Player 2</p>
+                    <p id="finalP2Score" class="font-mono-num text-4xl font-black text-white mt-1">0</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Rounds Won</p>
+                </div>
+            </div>
+
+            <button type="button" id="playAgainBtn"
+                class="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:via-indigo-400 hover:to-purple-500 text-white font-extrabold text-base tracking-wide shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+                Play Again
+            </button>
+        </section>
+
+    </main>
+
+    <!-- ==================== 4. CREATOR CREDITS FOOTER ==================== -->
+    <footer class="w-full max-w-2xl mx-auto mt-8">
+        <div class="glass-card rounded-2xl px-4 py-3.5 text-center border border-slate-800/90">
+            <p class="text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">
+                Created By
+            </p>
+            <div
+                class="flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-slate-200">
+                <span class="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-cyan-300">Abhinav
+                    J</span>
+                <span class="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-indigo-300">Eldho
+                    Binish</span>
+                <span class="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-purple-300">Eldo
+                    Jis</span>
+                <span class="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-amber-300">Criswin V
+                    Geo</span>
+            </div>
+
+            <!-- Social Links (Instagram & GitHub) -->
+            <div class="mt-3.5 pt-3 border-t border-slate-800/70 flex items-center justify-center gap-3">
+                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" title="Instagram"
+                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/70 hover:bg-gradient-to-r hover:from-purple-600/30 hover:to-pink-600/30 text-slate-300 hover:text-pink-300 border border-slate-700/60 hover:border-pink-500/40 text-xs font-semibold transition transform hover:-translate-y-0.5 active:translate-y-0 shadow-sm">
+                    <svg class="w-4 h-4 text-pink-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"
+                        aria-hidden="true">
+                        <path
+                            d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.13-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                    </svg>
+                    <span>Instagram</span>
+                </a>
+
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" title="GitHub"
+                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/60 hover:border-slate-500 text-xs font-semibold transition transform hover:-translate-y-0.5 active:translate-y-0 shadow-sm">
+                    <svg class="w-4 h-4 text-slate-300 shrink-0" fill="currentColor" viewBox="0 0 24 24"
+                        aria-hidden="true">
+                        <path fill-rule="evenodd" clip-rule="evenodd"
+                            d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                    </svg>
+                    <span>GitHub</span>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ==================== SOUND EFFECTS ENGINE (Tone.js) ====================
+        let soundEnabled = true;
+        let synth = null;
+
+        function initAudio() {
+            if (!synth && typeof Tone !== 'undefined') {
+                synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                synth.volume.value = -10;
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                initAudio();
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                const now = Tone.now();
+                if (type === 'high') {
+                    synth.triggerAttackRelease("E4", "16n", now);
+                    synth.triggerAttackRelease("C4", "16n", now + 0.08);
+                } else if (type === 'low') {
+                    synth.triggerAttackRelease("C4", "16n", now);
+                    synth.triggerAttackRelease("E4", "16n", now + 0.08);
+                } else if (type === 'error') {
+                    synth.triggerAttackRelease("A2", "16n", now);
+                } else if (type === 'roundWin') {
+                    synth.triggerAttackRelease(["C5", "E5", "G5"], "8n", now);
+                    synth.triggerAttackRelease(["C6"], "4n", now + 0.14);
+                } else if (type === 'matchWin') {
+                    synth.triggerAttackRelease(["C5", "E5", "G5"], "8n", now);
+                    synth.triggerAttackRelease(["D5", "F#5", "A5"], "8n", now + 0.15);
+                    synth.triggerAttackRelease(["E5", "G#5", "B5", "E6"], "2n", now + 0.3);
+                }
+            } catch (e) {
+                // Ignore audio errors if blocked by browser autoplay rules
+            }
+        }
+
+        // ==================== GAME STATE ====================
+        const gameState = {
+            totalRounds: 3,
+            currentRound: 1,
+            p1Name: 'Player 1',
+            p2Name: 'Player 2',
+            p1Score: 0,
+            p2Score: 0,
+            secretNumber: 50,
+            activePlayer: 1, // 1 or 2
+            minHint: 1,
+            maxHint: 100,
+            roundOver: false,
+            guesses: []
+        };
+
+        // ==================== DOM ELEMENTS ====================
+        const setupScreen = document.getElementById('setupScreen');
+        const gameplayScreen = document.getElementById('gameplayScreen');
+        const resultsScreen = document.getElementById('resultsScreen');
+        const quitBtn = document.getElementById('quitBtn');
+
+        // Setup DOM
+        const setupForm = document.getElementById('setupForm');
+        const roundsInput = document.getElementById('roundsInput');
+        const decRoundsBtn = document.getElementById('decRoundsBtn');
+        const incRoundsBtn = document.getElementById('incRoundsBtn');
+        const presetRoundBtns = document.querySelectorAll('.preset-round-btn');
+        const p1NameInput = document.getElementById('p1NameInput');
+        const p2NameInput = document.getElementById('p2NameInput');
+
+        // Gameplay DOM
+        const roundBadge = document.getElementById('roundBadge');
+        const hintRangeText = document.getElementById('hintRangeText');
+        const p1ScoreCard = document.getElementById('p1ScoreCard');
+        const p2ScoreCard = document.getElementById('p2ScoreCard');
+        const p1ActiveDot = document.getElementById('p1ActiveDot');
+        const p2ActiveDot = document.getElementById('p2ActiveDot');
+        const p1ScoreName = document.getElementById('p1ScoreName');
+        const p2ScoreName = document.getElementById('p2ScoreName');
+        const p1ScoreValue = document.getElementById('p1ScoreValue');
+        const p2ScoreValue = document.getElementById('p2ScoreValue');
+
+        const arenaCard = document.getElementById('arenaCard');
+        const turnPill = document.getElementById('turnPill');
+        const turnLabel = document.getElementById('turnLabel');
+        const guessForm = document.getElementById('guessForm');
+        const guessInput = document.getElementById('guessInput');
+        const submitGuessBtn = document.getElementById('submitGuessBtn');
+
+        const feedbackBanner = document.getElementById('feedbackBanner');
+        const feedbackIcon = document.getElementById('feedbackIcon');
+        const feedbackMessage = document.getElementById('feedbackMessage');
+        const nextRoundContainer = document.getElementById('nextRoundContainer');
+        const nextRoundBtn = document.getElementById('nextRoundBtn');
+
+        const historyContainer = document.getElementById('historyContainer');
+        const guessCountBadge = document.getElementById('guessCountBadge');
+        const guessHistoryList = document.getElementById('guessHistoryList');
+
+        // Results DOM
+        const winnerAnnouncement = document.getElementById('winnerAnnouncement');
+        const finalP1Card = document.getElementById('finalP1Card');
+        const finalP2Card = document.getElementById('finalP2Card');
+        const finalP1Name = document.getElementById('finalP1Name');
+        const finalP2Name = document.getElementById('finalP2Name');
+        const finalP1Score = document.getElementById('finalP1Score');
+        const finalP2Score = document.getElementById('finalP2Score');
+        const playAgainBtn = document.getElementById('playAgainBtn');
+
+        // Sound Toggle DOM
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const soundOnIcon = document.getElementById('soundOnIcon');
+        const soundOffIcon = document.getElementById('soundOffIcon');
+
+        // ==================== EVENT LISTENERS ====================
+        soundToggleBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundOnIcon.classList.toggle('hidden', !soundEnabled);
+            soundOffIcon.classList.toggle('hidden', soundEnabled);
+        });
+
+        decRoundsBtn.addEventListener('click', () => {
+            const val = parseInt(roundsInput.value, 10) || 1;
+            if (val > 1) roundsInput.value = val - 1;
+            highlightPresetBtn();
+        });
+
+        incRoundsBtn.addEventListener('click', () => {
+            const val = parseInt(roundsInput.value, 10) || 1;
+            if (val < 50) roundsInput.value = val + 1;
+            highlightPresetBtn();
+        });
+
+        roundsInput.addEventListener('input', highlightPresetBtn);
+
+        presetRoundBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                roundsInput.value = btn.dataset.rounds;
+                highlightPresetBtn();
+            });
+        });
+
+        function highlightPresetBtn() {
+            const currentVal = roundsInput.value;
+            presetRoundBtns.forEach(btn => {
+                if (btn.dataset.rounds === currentVal) {
+                    btn.className = 'preset-round-btn flex-1 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/30 text-indigo-200 border border-indigo-500/40 transition';
+                } else {
+                    btn.className = 'preset-round-btn flex-1 py-1.5 rounded-lg text-xs font-semibold bg-slate-800/70 hover:bg-slate-700 text-slate-300 border border-slate-700/50 transition';
+                }
+            });
+        }
+
+        // Start Game
+        setupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const rounds = parseInt(roundsInput.value, 10);
+            gameState.totalRounds = isNaN(rounds) || rounds < 1 ? 1 : Math.min(rounds, 50);
+            gameState.p1Name = p1NameInput.value.trim() || 'Player 1';
+            gameState.p2Name = p2NameInput.value.trim() || 'Player 2';
+            gameState.p1Score = 0;
+            gameState.p2Score = 0;
+            gameState.currentRound = 1;
+
+            p1ScoreName.textContent = gameState.p1Name;
+            p2ScoreName.textContent = gameState.p2Name;
+
+            setupScreen.classList.add('hidden');
+            resultsScreen.classList.add('hidden');
+            gameplayScreen.classList.remove('hidden');
+            quitBtn.classList.remove('hidden');
+
+            startRound();
+        });
+
+        // Quit / Restart back to Setup
+        quitBtn.addEventListener('click', () => {
+            gameplayScreen.classList.add('hidden');
+            resultsScreen.classList.add('hidden');
+            quitBtn.classList.add('hidden');
+            setupScreen.classList.remove('hidden');
+        });
+
+        // Submit Guess
+        guessForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (gameState.roundOver) return;
+
+            const rawVal = guessInput.value.trim();
+            const guess = parseInt(rawVal, 10);
+
+            // Validate 1-100
+            if (rawVal === '' || isNaN(guess) || guess < 1 || guess > 100) {
+                playSound('error');
+                showFeedback('invalid', 'Please enter a valid number between 1 and 100.');
+                arenaCard.classList.remove('animate-shake');
+                void arenaCard.offsetWidth; // trigger reflow
+                arenaCard.classList.add('animate-shake');
+                guessInput.focus();
+                return;
+            }
+
+            handleGuess(guess);
+        });
+
+        // Next Round or Final Results
+        nextRoundBtn.addEventListener('click', () => {
+            if (gameState.currentRound < gameState.totalRounds) {
+                gameState.currentRound++;
+                startRound();
+            } else {
+                showFinalResults();
+            }
+        });
+
+        // Play Again
+        playAgainBtn.addEventListener('click', () => {
+            resultsScreen.classList.add('hidden');
+            quitBtn.classList.add('hidden');
+            setupScreen.classList.remove('hidden');
+        });
+
+        // ==================== CORE GAME LOGIC ====================
+        function startRound() {
+            // Generate secret number between 1 and 100 (matching Python random.randint(1, 100))
+            gameState.secretNumber = Math.floor(Math.random() * 100) + 1;
+            gameState.activePlayer = 1; // Always starts with Player 1 per Python code
+            gameState.minHint = 1;
+            gameState.maxHint = 100;
+            gameState.roundOver = false;
+            gameState.guesses = [];
+
+            // Reset UI for new round
+            roundBadge.textContent = `Round ${gameState.currentRound} of ${gameState.totalRounds}`;
+            updateHintRange();
+            updateScoreboard();
+            updateTurnUI();
+
+            guessInput.value = '';
+            guessInput.disabled = false;
+            submitGuessBtn.disabled = false;
+            submitGuessBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            feedbackBanner.classList.add('hidden');
+            nextRoundContainer.classList.add('hidden');
+            historyContainer.classList.add('hidden');
+            guessHistoryList.innerHTML = '';
+
+            setTimeout(() => guessInput.focus(), 50);
+        }
+
+        function handleGuess(guess) {
+            const activeName = gameState.activePlayer === 1 ? gameState.p1Name : gameState.p2Name;
+
+            if (guess === gameState.secretNumber) {
+                // Correct guess!
+                gameState.roundOver = true;
+                if (gameState.activePlayer === 1) {
+                    gameState.p1Score++;
+                } else {
+                    gameState.p2Score++;
+                }
+
+                addGuessToHistory(guess, 'correct');
+                updateScoreboard();
+                playSound('roundWin');
+
+                showFeedback('correct', `Correct! ${activeName} wins this round.`);
+
+                guessInput.disabled = true;
+                submitGuessBtn.disabled = true;
+                submitGuessBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+                // Configure Next Round / View Final Results button
+                if (gameState.currentRound < gameState.totalRounds) {
+                    nextRoundBtn.textContent = `Start Round ${gameState.currentRound + 1} →`;
+                } else {
+                    nextRoundBtn.textContent = 'View Final Results 🏆';
+                }
+                nextRoundContainer.classList.remove('hidden');
+
+                // Subtle confetti burst
+                if (typeof confetti === 'function') {
+                    confetti({
+                        particleCount: 55,
+                        spread: 60,
+                        origin: { y: 0.65 }
+                    });
+                }
+
+            } else if (guess > gameState.secretNumber) {
+                // Guess is greater than actual number
+                playSound('high');
+                if (guess - 1 < gameState.maxHint && guess - 1 >= gameState.minHint) {
+                    gameState.maxHint = guess - 1;
+                    updateHintRange();
+                }
+                addGuessToHistory(guess, 'high');
+                showFeedback('high', 'Your guess is greater than the actual number.');
+                switchPlayer();
+
+            } else {
+                // Guess is smaller than actual number
+                playSound('low');
+                if (guess + 1 > gameState.minHint && guess + 1 <= gameState.maxHint) {
+                    gameState.minHint = guess + 1;
+                    updateHintRange();
+                }
+                addGuessToHistory(guess, 'low');
+                showFeedback('low', 'Your guess is smaller than the actual number.');
+                switchPlayer();
+            }
+        }
+
+        function switchPlayer() {
+            gameState.activePlayer = gameState.activePlayer === 1 ? 2 : 1;
+            updateTurnUI();
+            guessInput.value = '';
+            guessInput.focus();
+        }
+
+        function updateHintRange() {
+            hintRangeText.textContent = `${gameState.minHint} – ${gameState.maxHint}`;
+        }
+
+        function updateScoreboard() {
+            p1ScoreValue.textContent = gameState.p1Score;
+            p2ScoreValue.textContent = gameState.p2Score;
+        }
+
+        function updateTurnUI() {
+            const isP1 = gameState.activePlayer === 1;
+            const activeName = isP1 ? gameState.p1Name : gameState.p2Name;
+
+            turnLabel.textContent = `${activeName}'s Turn`;
+
+            if (isP1) {
+                // Score cards
+                p1ScoreCard.className = 'rounded-2xl p-3.5 sm:p-4 bg-slate-900/90 border border-cyan-400/60 shadow-lg shadow-cyan-500/10 transition-all duration-300';
+                p2ScoreCard.className = 'rounded-2xl p-3.5 sm:p-4 bg-slate-900/40 border border-slate-800/80 opacity-65 transition-all duration-300';
+                p1ActiveDot.classList.remove('hidden');
+                p2ActiveDot.classList.add('hidden');
+
+                // Arena styling
+                arenaCard.classList.remove('p2-glow');
+                arenaCard.classList.add('p1-glow');
+
+                turnPill.className = 'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-extrabold uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/35 mb-2';
+                guessInput.className = 'w-full h-16 sm:h-20 bg-slate-950/90 border-2 border-cyan-500/50 rounded-2xl text-center font-mono-num text-3xl sm:text-4xl font-extrabold text-white placeholder-slate-700 focus:outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/20 transition';
+                submitGuessBtn.className = 'w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-extrabold text-base tracking-wide shadow-lg shadow-cyan-500/25 transition transform active:scale-98 cursor-pointer';
+            } else {
+                // Score cards
+                p2ScoreCard.className = 'rounded-2xl p-3.5 sm:p-4 bg-slate-900/90 border border-amber-400/60 shadow-lg shadow-amber-500/10 transition-all duration-300';
+                p1ScoreCard.className = 'rounded-2xl p-3.5 sm:p-4 bg-slate-900/40 border border-slate-800/80 opacity-65 transition-all duration-300';
+                p2ActiveDot.classList.remove('hidden');
+                p1ActiveDot.classList.add('hidden');
+
+                // Arena styling
+                arenaCard.classList.remove('p1-glow');
+                arenaCard.classList.add('p2-glow');
+
+                turnPill.className = 'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/35 mb-2';
+                guessInput.className = 'w-full h-16 sm:h-20 bg-slate-950/90 border-2 border-amber-500/50 rounded-2xl text-center font-mono-num text-3xl sm:text-4xl font-extrabold text-white placeholder-slate-700 focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-500/20 transition';
+                submitGuessBtn.className = 'w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-extrabold text-base tracking-wide shadow-lg shadow-amber-500/25 transition transform active:scale-98 cursor-pointer';
+            }
+        }
+
+        function showFeedback(type, message) {
+            feedbackBanner.classList.remove('hidden');
+            feedbackMessage.textContent = message;
+
+            if (type === 'high') {
+                feedbackBanner.className = 'mt-6 rounded-2xl p-4 border bg-rose-500/10 border-rose-500/35 text-rose-200 text-center animate-pop';
+                feedbackIcon.innerHTML = `<svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>`;
+            } else if (type === 'low') {
+                feedbackBanner.className = 'mt-6 rounded-2xl p-4 border bg-sky-500/10 border-sky-500/35 text-sky-200 text-center animate-pop';
+                feedbackIcon.innerHTML = `<svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>`;
+            } else if (type === 'correct') {
+                feedbackBanner.className = 'mt-6 rounded-2xl p-4 border bg-emerald-500/15 border-emerald-400/50 text-emerald-200 text-center animate-pop';
+                feedbackIcon.innerHTML = `<svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+            } else {
+                feedbackBanner.className = 'mt-6 rounded-2xl p-3.5 border bg-amber-500/10 border-amber-500/35 text-amber-200 text-center animate-pop';
+                feedbackIcon.innerHTML = `<svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`;
+            }
+        }
+
+        function addGuessToHistory(guess, result) {
+            const playerNum = gameState.activePlayer;
+            const playerName = playerNum === 1 ? gameState.p1Name : gameState.p2Name;
+            gameState.guesses.push({ playerNum, playerName, guess, result });
+
+            historyContainer.classList.remove('hidden');
+            guessCountBadge.textContent = `${gameState.guesses.length} ${gameState.guesses.length === 1 ? 'guess' : 'guesses'}`;
+
+            const chip = document.createElement('div');
+            const badgeColor = playerNum === 1
+                ? 'border-cyan-500/30 bg-cyan-950/40 text-cyan-200'
+                : 'border-amber-500/30 bg-amber-950/40 text-amber-200';
+
+            let arrowText = '';
+            if (result === 'high') arrowText = '↓ Too High';
+            else if (result === 'low') arrowText = '↑ Too Low';
+            else arrowText = '✓ Exact';
+
+            chip.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${badgeColor} animate-pop`;
+            chip.innerHTML = `
+                <span class="opacity-75">${escapeHTML(playerName)}:</span>
+                <span class="font-mono-num font-bold">${guess}</span>
+                <span class="text-[10px] opacity-80">(${arrowText})</span>
+            `;
+
+            guessHistoryList.prepend(chip);
+        }
+
+        function showFinalResults() {
+            gameplayScreen.classList.add('hidden');
+            resultsScreen.classList.remove('hidden');
+            playSound('matchWin');
+
+            finalP1Name.textContent = gameState.p1Name;
+            finalP2Name.textContent = gameState.p2Name;
+            finalP1Score.textContent = gameState.p1Score;
+            finalP2Score.textContent = gameState.p2Score;
+
+            // Reset card highlight styles
+            finalP1Card.className = 'rounded-2xl p-4 bg-slate-900/80 border border-cyan-500/30';
+            finalP2Card.className = 'rounded-2xl p-4 bg-slate-900/80 border border-amber-500/30';
+
+            if (gameState.p1Score > gameState.p2Score) {
+                winnerAnnouncement.textContent = `${gameState.p1Name} is the overall winner!`;
+                finalP1Card.className = 'rounded-2xl p-4 bg-cyan-950/40 border-2 border-cyan-400 shadow-lg shadow-cyan-500/20';
+                launchVictoryConfetti();
+            } else if (gameState.p2Score > gameState.p1Score) {
+                winnerAnnouncement.textContent = `${gameState.p2Name} is the overall winner!`;
+                finalP2Card.className = 'rounded-2xl p-4 bg-amber-950/40 border-2 border-amber-400 shadow-lg shadow-amber-500/20';
+                launchVictoryConfetti();
+            } else {
+                winnerAnnouncement.textContent = 'The game is a tie!';
+            }
+        }
+
+        function launchVictoryConfetti() {
+            if (typeof confetti !== 'function') return;
+            confetti({
+                particleCount: 90,
+                spread: 75,
+                origin: { y: 0.6 }
+            });
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag]));
+        }
+    </script>
+</body>
+
+</html>
